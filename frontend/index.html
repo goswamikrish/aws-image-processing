@@ -1,0 +1,39 @@
+<h1>Serverless Image Processing Platform</h1>
+
+<hr>
+
+<h2>Upload an Image</h2>
+
+<input type="file" id="imageInput" accept="image/*">
+
+<br><br>
+
+<label><strong>Select Processing:</strong></label>
+
+<br><br>
+
+<select id="processType">
+
+    <option value="resize">Resize</option>
+
+    <option value="compress">Compress</option>
+
+    <option value="convert">Convert to JPEG</option>
+
+    <option value="thumbnail">Thumbnail</option>
+
+</select>
+
+<br><br>
+
+<button id="uploadBtn">
+    Upload Image
+</button>
+
+<p id="status"></p>
+<hr>
+
+<h2>Processed Image</h2>
+
+<img id="processedImage" width="500" style="display:none; border:1px solid #ccc;">
+<script src="script.js"></script>

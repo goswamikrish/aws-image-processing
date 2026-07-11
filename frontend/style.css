@@ -1,17 +1,781 @@
+/* ============================================================
+   DESIGN SYSTEM — CSS Custom Properties
+   ============================================================ */
+:root {
+  /* Colors */
+  --color-bg:           #f7f8fa;
+  --color-surface:      #ffffff;
+  --color-primary:      #4f46e5;
+  --color-primary-hover:#4338ca;
+  --color-text:         #1f2333;
+  --color-text-muted:   #6b7280;
+  --color-border:       #e5e7eb;
+  --color-success:      #16a34a;
+  --color-success-bg:   #ecfdf3;
+  --color-error:        #dc2626;
+  --color-error-bg:     #fef2f2;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 2px rgba(16,24,40,0.06);
+  --shadow-md:  0 4px 12px rgba(16,24,40,0.08);
+  --shadow-lg:  0 10px 24px rgba(16,24,40,0.12);
+
+  /* Border-radius */
+  --radius-sm:  8px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+
+  /* Spacing scale (4px base) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 300ms ease;
+}
+
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-    font-family: Arial, Helvetica, sans-serif;
-    text-align: center;
-    margin-top: 100px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  min-height: 100vh;
+  padding-bottom: var(--space-16);
 }
 
-button {
-    padding: 12px 20px;
-    font-size: 18px;
-    cursor: pointer;
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
-#result {
-    margin-top: 20px;
-    font-size: 20px;
-    color: green;
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+
+/* ============================================================
+   PAGE LOAD ANIMATION
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .container {
+    animation: fadeSlideIn 400ms ease both;
+  }
+}
+
+
+/* ============================================================
+   LAYOUT — Container
+   ============================================================ */
+.container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(var(--space-6), 6vw, var(--space-16)) clamp(var(--space-4), 4vw, var(--space-8));
+}
+
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.site-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.site-header h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.site-subtitle {
+  margin-top: var(--space-2);
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+
+
+/* ============================================================
+   CARD — Shared surface treatment
+   ============================================================ */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: var(--space-6);
+  }
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-6);
+}
+
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+.form-group {
+  margin-bottom: var(--space-6);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
+/* ─── File Input ─── */
+.file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  background: var(--color-bg);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-6);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  width: 100%;
+  justify-content: center;
+}
+
+.file-label:hover {
+  border-color: var(--color-primary);
+  background: #f0f0ff;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.08);
+}
+
+.file-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* Hide the native file input visually but keep it accessible */
+.file-label input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+}
+
+.file-chosen {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ─── Select ─── */
+.select-wrapper {
+  position: relative;
+}
+
+#processType {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px var(--space-8) 10px var(--space-3);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+#processType:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+}
+
+.select-arrow {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 1.2rem;
+  color: var(--color-text-muted);
+}
+
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 12px var(--space-6);
+  min-width: 160px;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Primary */
+.btn-primary {
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Secondary / Outlined */
+.btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  margin-top: var(--space-4);
+}
+
+.btn-secondary:hover {
+  background: rgba(79,70,229,0.06);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Icon inside btn */
+.icon-download {
+  font-size: 1.1rem;
+}
+
+/* ─── Upload button loading spinner ─── */
+.btn-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255,255,255,0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .btn-primary.btn-loading .btn-spinner {
+    display: block;
+    animation: spin 600ms linear infinite;
+  }
+}
+
+.btn-primary.btn-loading .btn-text::before {
+  content: "Processing…";
+}
+
+.btn-primary.btn-loading .btn-text {
+  font-size: 0;
+}
+
+.btn-primary.btn-loading .btn-text::before {
+  font-size: 1rem;
+}
+
+/* Full-width buttons on mobile */
+@media (max-width: 640px) {
+  .btn {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   STATUS MESSAGE
+   ============================================================ */
+.status {
+  margin-top: var(--space-4);
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  min-height: 0;
+  transition: min-height var(--transition-base);
+}
+
+.status:empty {
+  display: none;
+}
+
+/* State classes toggled by script.js helper */
+.status.status-uploading {
+  color: var(--color-text-muted);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.status.status-success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #bbf7d0;
+}
+
+.status.status-error {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #fecaca;
+}
+
+/* Status fade-in on content change */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes statusFade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .status.status-update {
+    animation: statusFade 220ms ease both;
+  }
+}
+
+
+/* ============================================================
+   TOAST NOTIFICATIONS
+   ============================================================ */
+#toast-container {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 280px;
+  max-width: 380px;
+  padding: var(--space-4) var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.9rem;
+  font-weight: 500;
+  pointer-events: all;
+  line-height: 1.4;
+  border-left: 4px solid transparent;
+}
+
+.toast--success {
+  background: #f0fdf4;
+  color: #15803d;
+  border-left-color: #22c55e;
+}
+
+.toast--error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-left-color: #ef4444;
+}
+
+.toast--info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-left-color: #3b82f6;
+}
+
+.toast__icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.toast__message {
+  flex: 1;
+}
+
+.toast__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.toast__close:hover {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(110%); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateX(0); max-height: 120px; margin-bottom: 0; }
+    to   { opacity: 0; transform: translateX(110%); max-height: 0; margin-bottom: -12px; }
+  }
+
+  .toast {
+    animation: toastIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .toast.toast--leaving {
+    animation: toastOut 280ms ease forwards;
+  }
+}
+
+@media (max-width: 480px) {
+  #toast-container {
+    top: auto;
+    bottom: var(--space-6);
+    right: var(--space-4);
+    left: var(--space-4);
+  }
+
+  .toast {
+    min-width: unset;
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* Neat typography inside the status HTML injected by script.js */
+.status h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.status p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+
+/* ============================================================
+   RESULT / PREVIEW CARD — Selected Image
+   ============================================================ */
+.result-card {
+  /* Card is always present in the DOM; content within it toggles */
+}
+
+.preview-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-4));
+  margin-bottom: var(--space-6);
+}
+
+/* Empty-state placeholder shown before a file is chosen */
+.preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 160px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  transition: opacity var(--transition-base);
+}
+
+.preview-empty__icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+}
+
+.preview-empty.hidden {
+  display: none;
+}
+
+.result-image-wrapper {
+  display: flex;
+  justify-content: center;
+  max-width: 500px;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* #previewImage — shown via JS (URL.createObjectURL) when user picks a file */
+#previewImage {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  object-fit: contain;
+}
+
+/* Reveal animation: script.js adds .img-revealed class after setting display:block */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes imgReveal {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  #previewImage.img-revealed {
+    animation: imgReveal 300ms ease both;
+  }
+}
+
+/* Download button alignment */
+.result-card .btn-secondary {
+  display: flex;
+  width: fit-content;
+  margin: var(--space-4) auto 0;
+}
+
+@media (max-width: 640px) {
+  .result-card .btn-secondary {
+    width: 100%;
+  }
+}
+
+/* #downloadBtn — DO NOT rename. JS sets style.display = "inline-block" */
+#downloadBtn {
+  /* The element is an <a> styled as .btn-secondary; display is JS-controlled */
+}
+
+
+/* ============================================================
+   GALLERY SECTION
+   ============================================================ */
+.gallery-section {
+  margin-top: var(--space-12);
+}
+
+.gallery-title {
+  font-size: 1.25rem;
+}
+
+.gallery-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-4));
+  margin-bottom: var(--space-6);
+}
+
+/* #gallery — DO NOT rename. JS sets .innerHTML to inject .gallery-card elements */
+#gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Empty state (when gallery has no children) */
+#gallery:empty::before {
+  content: "No processed images yet — upload one to get started.";
+  display: block;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* ─── Gallery Card ─── */
+/* .gallery-card — DO NOT rename; used by script.js */
+.gallery-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+
+  /* Stagger animation index set by script.js: style.setProperty('--i', index) */
+}
+
+.gallery-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+/* Card image wrapper — for overflow:hidden on zoom */
+.gallery-card__img-wrapper {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.gallery-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--transition-base);
+}
+
+.gallery-card:hover img {
+  transform: scale(1.05);
+}
+
+/* Card body */
+.gallery-card__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-3);
+}
+
+.gallery-card p {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* Card download button */
+.gallery-card .btn-secondary {
+  margin-top: auto;
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 8px var(--space-3);
+  min-width: unset;
+}
+
+/* ─── Gallery card entrance animation (staggered) ─── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes cardEntrance {
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+  }
+
+  .gallery-card.card-animate {
+    animation: cardEntrance 380ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+    animation-delay: calc(var(--i, 0) * 55ms);
+  }
+}
+
+
+/* ============================================================
+   FOCUS-VISIBLE — Keyboard navigation outlines
+   ============================================================ */
+:focus-visible {
+  outline: 2.5px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
+
+/* ============================================================
+   REDUCED MOTION — Disable non-essential animations
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

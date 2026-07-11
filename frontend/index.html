@@ -1,39 +1,108 @@
-<h1>Serverless Image Processing Platform</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Serverless Image Processing Platform</title>
+  <meta name="description" content="Upload, process, and manage your images in the cloud. Resize, compress, convert, and thumbnail your images instantly." />
 
-<hr>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-<h2>Upload an Image</h2>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-<input type="file" id="imageInput" accept="image/*">
+  <div class="container">
 
-<br><br>
+    <!-- ── Header ─────────────────────────────────────── -->
+    <header class="site-header">
+      <h1>Serverless Image Processing Platform</h1>
+      <p class="site-subtitle">Upload, process, and manage your images in the cloud.</p>
+    </header>
 
-<label><strong>Select Processing:</strong></label>
+    <!-- ── Upload Card ───────────────────────────────── -->
+    <section class="card upload-card">
+      <h2 class="section-title">Upload an Image</h2>
 
-<br><br>
+      <div class="form-group">
+        <label for="imageInput" class="file-label" id="fileLabelText">
+          <span class="file-icon">&#8679;</span>
+          <span class="file-label-text">Choose a file</span>
+          <!-- #imageInput — DO NOT rename; used by script.js -->
+          <input type="file" id="imageInput" accept="image/*" />
+        </label>
+        <span class="file-chosen" id="fileChosen">No file chosen</span>
+      </div>
 
-<select id="processType">
+      <div class="form-group">
+        <label for="processType" class="field-label">Processing Type</label>
+        <!-- #processType — DO NOT rename; used by script.js -->
+        <div class="select-wrapper">
+          <select id="processType">
+            <option value="resize">Resize</option>
+            <option value="compress">Compress</option>
+            <option value="convert">Convert to JPEG</option>
+            <option value="thumbnail">Thumbnail</option>
+          </select>
+          <span class="select-arrow" aria-hidden="true">&#8964;</span>
+        </div>
+      </div>
 
-    <option value="resize">Resize</option>
+      <!-- #uploadBtn — DO NOT rename; used by script.js -->
+      <button id="uploadBtn" class="btn btn-primary" aria-live="polite">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <span class="btn-text">Upload &amp; Process</span>
+      </button>
 
-    <option value="compress">Compress</option>
+      <!-- #status — DO NOT rename; used by script.js -->
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </section>
 
-    <option value="convert">Convert to JPEG</option>
+    <!-- ── Preview Card ────────────────────────────── -->
+    <section class="card result-card">
+      <h2 class="section-title">Selected Image Preview</h2>
+      <p class="preview-subtitle">Your image will appear here once you choose a file.</p>
 
-    <option value="thumbnail">Thumbnail</option>
+      <!-- Empty state shown when no file is selected -->
+      <div class="preview-empty" id="previewEmpty">
+        <span class="preview-empty__icon">&#128444;</span>
+        <span>No image selected yet</span>
+      </div>
 
-</select>
+      <div class="result-image-wrapper">
+        <!--
+          #previewImage — shown via JS when a file is chosen.
+          src is set via URL.createObjectURL() so no server round-trip needed.
+        -->
+        <img
+          id="previewImage"
+          class="result-image"
+          alt="Selected image preview"
+          style="display:none;"
+        />
+      </div>
+    </section>
 
-<br><br>
+    <!-- ── Gallery ───────────────────────────────────── -->
+    <section class="gallery-section">
+      <h2 class="section-title gallery-title">Image Gallery</h2>
+      <p class="gallery-subtitle">All previously processed images</p>
 
-<button id="uploadBtn">
-    Upload Image
-</button>
+      <!--
+        #gallery — DO NOT rename; used by script.js.
+        script.js sets gallery.innerHTML to inject .gallery-card elements.
+      -->
+      <div id="gallery">
+        <!-- .gallery-card elements are injected by script.js -->
+        <!-- Empty state shown via CSS :empty pseudo-class on #gallery -->
+      </div>
+    </section>
 
-<p id="status"></p>
-<hr>
+  </div><!-- /.container -->
 
-<h2>Processed Image</h2>
-
-<img id="processedImage" width="500" style="display:none; border:1px solid #ccc;">
-<script src="script.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

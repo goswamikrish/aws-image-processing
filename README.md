@@ -1,20 +1,26 @@
-# Image Processing Platform
+# Image Processing AWS Platform
 
-A small image-processing web app with a static frontend and a Flask backend. Users can upload an image, choose a processing operation, and view the processed result in the browser.
+A browser-based image processing app with two backend paths:
 
-The current code runs locally. The UI title says "Serverless Image Processing Platform", but this repository does not currently include AWS infrastructure, Lambda handlers, S3 integration, or deployment templates.
+- A serverless AWS flow built with Terraform, API Gateway, Lambda, S3, and Pillow.
+- A local Flask backend that can process images on the developer machine.
+
+The frontend lets users choose an image, select an operation, upload it, and browse processed images in a gallery. In the current frontend code, uploads and gallery reads are wired to the deployed API Gateway endpoint in `frontend/script.js`.
 
 ## Features
 
-- Upload an image from the browser.
+- Upload images from the browser.
 - Choose one of four processing modes:
-  - Resize: scales the image down to fit within 800 x 800 pixels.
-  - Compress: saves the image with optimization enabled and JPEG-style quality set to 40.
-  - Convert to JPEG: converts the uploaded image to RGB and saves it with a `.jpg` extension.
-  - Thumbnail: scales the image down to fit within 200 x 200 pixels.
-- Store uploaded source files in `backend/uploads`.
-- Store processed images in `backend/processed`.
-- Serve processed images through the backend so the frontend can preview them.
+  - Resize: fit within an 800 x 800 pixel box.
+  - Compress: save with Pillow optimization and quality set to 40.
+  - Convert: convert to JPEG/RGB output.
+  - Thumbnail: fit within a 200 x 200 pixel box.
+- Generate pre-signed S3 upload URLs through Lambda.
+- Upload original images directly from the browser to the uploads S3 bucket.
+- Process images asynchronously when new uploads land in S3.
+- Store processed images in a separate processed S3 bucket.
+- Return gallery entries with pre-signed read URLs.
+- Provide a local Flask API for development/testing without AWS.
 
 ## Tech Stack
 
@@ -24,9 +30,9 @@ The current code runs locally. The UI title says "Serverless Image Processing Pl
 - CSS
 - JavaScript
 - Browser `fetch` API
-- `FormData` for multipart uploads
+- `FormData` and direct S3 `PUT` uploads through pre-signed URLs
 
-### Backend
+### Local Backend
 
 - Python
 - Flask
@@ -34,89 +40,157 @@ The current code runs locally. The UI title says "Serverless Image Processing Pl
 - Pillow
 - Werkzeug filename sanitization
 
-## Project Structure
+### AWS / Infrastructure
+
+- Terraform
+- AWS S3
+- AWS Lambda with Python 3.12
+- Amazon API Gateway HTTP API
+- AWS IAM roles and policies
+- Terraform `archive` provider for Lambda zip artifacts
+
+## Project Components Structure
 
 ```text
 .
 |-- README.md
+|-- .gitignore
 |-- backend
 |   |-- app.py
 |   |-- config.py
 |   |-- requirements.txt
-|   |-- processed
+|   |-- routes
+|   |   `-- image_routes.py
 |   |-- services
 |   |   `-- image_services.py
+|   |-- utils
+|   |   `-- files_utils.py
 |   |-- uploads
-|   `-- utils
-|       `-- files_utils.py
-`-- frontend
-    |-- index.html
-    |-- script.js
-    `-- style.css
+|   `-- processed
+|-- frontend
+|   |-- index.html
+|   |-- script.js
+|   `-- style.css
+`-- terraform
+    |-- provider.tf
+    |-- variables.tf
+    |-- main.tf
+    |-- outputs.tf
+    |-- build
+    |   |-- upload.zip
+    |   |-- process.zip
+    |   `-- gallery.zip
+    `-- lambda
+        |-- upload
+        |   |-- handler.py
+        |   `-- requirements.txt
+        |-- process
+        |   |-- handler.py
+        |   |-- requirements.txt
+        |   |-- PIL
+        |   |-- pillow.libs
+        |   `-- pillow-12.2.0.dist-info
+        `-- gallery
+            |-- handler.py
+            `-- requirements.txt
 ```
 
-### Important Files
+### Structure Notes
 
-`backend/app.py`
+- `backend/uploads` and `backend/processed` are runtime data folders for the local Flask backend.
+- `backend/__pycache__` and nested `__pycache__` folders are generated Python cache files.
+- `terraform/build` contains generated Lambda zip packages.
+- `terraform/lambda/process/PIL`, `terraform/lambda/process/pillow.libs`, and `terraform/lambda/process/pillow-12.2.0.dist-info` are vendored Pillow dependency files for the image processing Lambda package.
+- `terraform/.terraform`, Terraform state files, local variables files, build zips, runtime images, and Python caches are generated or environment-specific files and are usually not committed to source control.
 
-Main Flask application. It defines:
+## Component Responsibilities
 
-- `GET /` health-style route that returns a JSON message.
-- `POST /upload` route that receives an uploaded image and processing type.
-- `GET /processed/<filename>` route that serves processed image files.
+| Component | Path | Responsibility |
+| --- | --- | --- |
+| Frontend page | `frontend/index.html` | Defines the upload form, image preview, processing selector, status area, and gallery container. |
+| Frontend behavior | `frontend/script.js` | Handles file selection, preview rendering, API calls, pre-signed upload flow, gallery polling, image downloads, and toast messages. |
+| Frontend styling | `frontend/style.css` | Provides layout, form controls, buttons, preview states, gallery cards, toast notifications, and responsive styling. |
+| Flask app entrypoint | `backend/app.py` | Creates the Flask app, enables CORS, registers the image routes blueprint, and starts the local dev server. |
+| Flask config | `backend/config.py` | Defines local upload and processed output directories and creates them when the backend starts. |
+| Flask routes | `backend/routes/image_routes.py` | Provides local routes for health checks, image uploads, processed image serving, and gallery listing. |
+| Local image service | `backend/services/image_services.py` | Uses Pillow to resize, compress, convert, or thumbnail local image files. |
+| Local file utilities | `backend/utils/files_utils.py` | Validates file extensions, sanitizes names, generates UUID filenames, and saves uploaded files. |
+| Terraform provider setup | `terraform/provider.tf` | Sets Terraform version/provider requirements and configures the AWS region. |
+| Terraform variables | `terraform/variables.tf` | Declares `aws_region`, `project_name`, and `environment`. |
+| AWS infrastructure | `terraform/main.tf` | Creates S3 buckets, bucket policies, CORS settings, IAM permissions, Lambda functions, API Gateway routes, and S3 event notifications. |
+| Terraform outputs | `terraform/outputs.tf` | Prints bucket names, API endpoint, frontend website URL, project name, and region after apply. |
+| Upload Lambda | `terraform/lambda/upload/handler.py` | Handles `POST /upload`, creates a pre-signed S3 `PUT` URL, and encodes the processing type into the object key. |
+| Process Lambda | `terraform/lambda/process/handler.py` | Runs from S3 upload events, downloads the uploaded image, processes it with Pillow, and stores the result in the processed bucket. |
+| Gallery Lambda | `terraform/lambda/gallery/handler.py` | Handles `GET /gallery`, lists processed S3 objects, and returns pre-signed read URLs. |
 
-`backend/config.py`
+## Serverless Request Flow
 
-Stores folder names for uploads and processed output:
+1. The user selects an image and processing type in the frontend.
+2. `frontend/script.js` sends `POST /upload` to API Gateway with the file content type and selected `processType`.
+3. API Gateway invokes `terraform/lambda/upload/handler.py`.
+4. The upload Lambda returns a pre-signed S3 `PUT` URL and generated object key.
+5. The browser uploads the original image directly to the uploads S3 bucket.
+6. The uploads bucket emits an `ObjectCreated` event.
+7. S3 invokes `terraform/lambda/process/handler.py`.
+8. The process Lambda reads the process type from the uploaded object key, downloads the file to `/tmp`, processes it with Pillow, and uploads `processed_<key>` to the processed bucket.
+9. The frontend polls `GET /gallery`.
+10. API Gateway invokes `terraform/lambda/gallery/handler.py`.
+11. The gallery Lambda lists processed objects and returns filenames plus pre-signed read URLs.
+12. The frontend renders the processed images and provides view/download actions.
 
-- `UPLOAD_FOLDER = "uploads"`
-- `PROCESSED_FOLDER = "processed"`
+## AWS API
 
-It also creates those folders if they do not exist.
+### `POST /upload`
 
-`backend/services/image_services.py`
+Creates a pre-signed S3 upload URL.
 
-Contains the image processing logic using Pillow. The main function is:
+Request body:
 
-```python
-process_image(filepath, filename, process_type)
+```json
+{
+  "contentType": "image/jpeg",
+  "processType": "resize"
+}
 ```
 
-It opens the uploaded image, applies the selected operation, writes the processed image to the processed folder, and returns the processed filename.
+Successful response:
 
-`backend/utils/files_utils.py`
+```json
+{
+  "uploadUrl": "https://...",
+  "fileName": "resize_uuid.jpeg"
+}
+```
 
-Currently empty. This is a natural place to add reusable file helpers later, such as extension validation, filename generation, cleanup utilities, or upload-size checks.
+The frontend then uploads the file with:
 
-`frontend/index.html`
+```http
+PUT <uploadUrl>
+Content-Type: image/jpeg
+```
 
-Defines the user interface:
+### `GET /gallery`
 
-- File input
-- Processing dropdown
-- Upload button
-- Status area
-- Processed image preview
+Lists processed images.
 
-`frontend/script.js`
+Example response:
 
-Handles the upload workflow in the browser:
+```json
+[
+  {
+    "filename": "processed_resize_uuid.jpeg",
+    "url": "https://..."
+  }
+]
+```
 
-1. Reads the selected image file.
-2. Reads the selected processing type.
-3. Sends both values to `http://127.0.0.1:5000/upload`.
-4. Displays the backend response.
-5. Updates the preview image using the returned `imageUrl`.
+## Local Flask API
 
-`frontend/style.css`
-
-Contains basic page styling for the frontend.
-
-## Backend API
+The Flask backend is useful for local development and direct backend testing. It stores uploads in `backend/uploads` and processed outputs in `backend/processed`.
 
 ### `GET /`
 
-Checks whether the backend is running.
+Health check.
 
 Example response:
 
@@ -128,7 +202,7 @@ Example response:
 
 ### `POST /upload`
 
-Uploads and processes an image.
+Uploads and processes an image locally.
 
 Request type:
 
@@ -140,7 +214,7 @@ Form fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `image` | File | Yes | The image to upload and process. |
+| `image` | File | Yes | Supported extensions: `png`, `jpg`, `jpeg`, `gif`, `webp`. |
 | `processType` | String | Yes | One of `resize`, `compress`, `convert`, or `thumbnail`. |
 
 Successful response:
@@ -149,75 +223,38 @@ Successful response:
 {
   "message": "Image Uploaded Successfully",
   "original": "example.png",
-  "processed": "processed_example.png",
-  "imageUrl": "http://localhost:5000/processed/processed_example.png"
+  "processed": "processed_uuid_example.png",
+  "imageUrl": "http://localhost:5000/processed/processed_uuid_example.png"
 }
 ```
-
-Possible error responses:
-
-```json
-{
-  "error": "No image uploaded"
-}
-```
-
-```json
-{
-  "error": "No file selected"
-}
-```
-
-Note: if an invalid `processType` is submitted, `process_image` raises `ValueError("Invalid process type")`. The current route does not catch that exception, so Flask will return a server error in that case.
 
 ### `GET /processed/<filename>`
 
-Serves a processed image file from the processed output directory.
+Serves a locally processed image from `backend/processed`.
 
-Example:
+### `GET /gallery`
 
-```text
-http://localhost:5000/processed/processed_example.png
+Lists local processed images.
+
+Example response:
+
+```json
+[
+  {
+    "filename": "processed_example.png",
+    "url": "http://127.0.0.1:5000/processed/processed_example.png"
+  }
+]
 ```
 
 ## Processing Modes
 
-### Resize
-
-```python
-img.thumbnail((800, 800))
-```
-
-Creates an image that fits within an 800 x 800 bounding box while preserving aspect ratio. Pillow's `thumbnail` method modifies the image object in place.
-
-### Compress
-
-```python
-img.save(processed_path, optimize=True, quality=40)
-```
-
-Saves an optimized version of the image. The current implementation keeps the generated filename as `processed_<original filename>`.
-
-### Convert
-
-```python
-rgb = img.convert("RGB")
-rgb.save(processed_path)
-```
-
-Converts the image to RGB and saves it with a `.jpg` extension. Unlike the other modes, this output filename is based on the original filename without the `processed_` prefix:
-
-```text
-original.png -> original.jpg
-```
-
-### Thumbnail
-
-```python
-img.thumbnail((200, 200))
-```
-
-Creates a smaller preview image that fits within a 200 x 200 bounding box while preserving aspect ratio.
+| Mode | Behavior |
+| --- | --- |
+| `resize` | Uses Pillow `thumbnail((800, 800))` to preserve aspect ratio inside an 800 x 800 box. |
+| `compress` | Saves with `optimize=True` and `quality=40`. |
+| `convert` | Converts the image to RGB and writes JPEG output. |
+| `thumbnail` | Uses Pillow `thumbnail((200, 200))` to preserve aspect ratio inside a 200 x 200 box. |
 
 ## Local Setup
 
@@ -237,7 +274,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-If PowerShell blocks script execution, you can use Command Prompt activation instead:
+If PowerShell blocks script execution, use Command Prompt activation:
 
 ```bat
 venv\Scripts\activate.bat
@@ -249,7 +286,7 @@ venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
-### 3. Run the Backend
+### 3. Run the Local Backend
 
 Run this from the `backend` directory:
 
@@ -263,87 +300,113 @@ By default, Flask starts at:
 http://127.0.0.1:5000
 ```
 
-You can confirm the backend is running by opening:
-
-```text
-http://127.0.0.1:5000/
-```
-
 ### 4. Open the Frontend
 
 Open `frontend/index.html` in a browser.
 
-The frontend sends upload requests to:
+Important: the current frontend is configured to call this deployed API Gateway URL:
 
 ```text
-http://127.0.0.1:5000/upload
+https://txqyd7x425.execute-api.eu-north-1.amazonaws.com
 ```
 
-Because the backend enables CORS, the static frontend can call the Flask API even when opened directly from the filesystem.
+To use the local Flask backend instead, update the `API_URL` constants in `frontend/script.js` to:
 
-## Usage
+```text
+http://127.0.0.1:5000
+```
 
-1. Start the Flask backend.
-2. Open `frontend/index.html`.
-3. Choose an image file.
-4. Select a processing mode from the dropdown.
-5. Click `Upload Image`.
-6. View the response details and processed image preview.
+The local Flask API uses multipart upload, while the current AWS frontend flow uses a JSON pre-signed URL request followed by a direct S3 `PUT`. If you switch back to Flask, the upload logic in `frontend/script.js` must match the Flask route's `multipart/form-data` contract.
 
-## Example cURL Request
+## Terraform Deployment
 
-From the project root, replace `path\to\image.png` with a real image path:
+### Prerequisites
+
+- Terraform 1.5 or newer
+- AWS credentials configured locally
+- Permission to create S3 buckets, Lambda functions, IAM roles/policies, API Gateway HTTP APIs, and S3 bucket notifications
+
+### Variables
+
+`terraform/variables.tf` expects:
+
+| Variable | Description |
+| --- | --- |
+| `aws_region` | AWS region for the deployment. |
+| `project_name` | Prefix used in resource names. |
+| `environment` | Environment name used in resource names and tags. |
+
+Example `terraform.tfvars`:
+
+```hcl
+aws_region   = "eu-north-1"
+project_name = "image-processing"
+environment  = "dev"
+```
+
+### Commands
+
+Run from the `terraform` directory:
 
 ```powershell
-curl.exe -X POST http://127.0.0.1:5000/upload `
-  -F "image=@path\to\image.png" `
-  -F "processType=resize"
+terraform init
+terraform plan
+terraform apply
 ```
 
-## Runtime Folders
+Terraform outputs include:
 
-The backend uses two runtime folders:
+- `api_endpoint`
+- `frontend_url`
+- `s3_bucket_uploads`
+- `s3_bucket_processed`
+- `s3_bucket_frontend`
 
-- `backend/uploads`: stores the original uploaded files.
-- `backend/processed`: stores generated processed files.
+## Deploying the Frontend to S3
 
-These folders may contain user-uploaded or generated images. They are application data, not source code.
+Terraform creates a public S3 website bucket for the frontend. After `terraform apply`, upload the static frontend files to the frontend bucket:
+
+```powershell
+aws s3 sync ..\frontend s3://<frontend-bucket-name>
+```
+
+Then open the `frontend_url` output.
+
+If Terraform creates a new API endpoint, update the `API_URL` constants in `frontend/script.js` before syncing the frontend files.
+
+## Runtime and Generated Files
+
+The repo currently contains runtime/generated files such as:
+
+- Local uploads in `backend/uploads`
+- Local processed files in `backend/processed`
+- Python caches in `__pycache__`
+- Terraform provider files in `terraform/.terraform`
+- Terraform state files
+- Terraform build zips in `terraform/build`
+- Vendored Pillow files in `terraform/lambda/process`
+
+These files are useful locally, but many teams prefer to ignore generated files and keep only source, configuration, and reproducible packaging instructions in version control.
 
 ## Current Limitations
 
-- No AWS integration is implemented yet.
-- No file size limit is configured.
-- No explicit file extension or MIME-type validation is implemented.
-- Invalid processing types are not handled gracefully by the upload route.
-- Uploaded files with the same sanitized filename can overwrite earlier uploads.
-- Processed files with the same generated filename can overwrite earlier outputs.
-- `frontend/script.js` uses `127.0.0.1:5000` for uploads, while the backend response uses `localhost:5000` in `imageUrl`.
+- `frontend/script.js` has the API Gateway URL hardcoded in multiple places.
+- The upload and gallery Lambda handlers hardcode the S3 client region/endpoint to `eu-north-1`.
+- API Gateway and S3 CORS allow all origins for development.
+- The local Flask route does not catch invalid `processType` errors gracefully.
+- File validation is extension/content-type based depending on flow; deeper image validation is limited.
 - There is no automated test suite yet.
-- `backend/utils/files_utils.py` is currently empty.
-- The checked-in `backend/venv` directory is a local environment and is usually excluded from source control in production projects.
+- Terraform state and generated artifacts appear in the working tree and should be handled carefully.
 
 ## Suggested Improvements
 
-- Add a `.gitignore` for `venv`, `__pycache__`, uploads, and processed outputs.
-- Add validation for allowed image extensions and content types.
-- Add a maximum upload size with Flask's `MAX_CONTENT_LENGTH`.
-- Generate unique filenames to avoid overwriting files.
-- Catch processing errors and return clean JSON error responses.
-- Move API base URL into a frontend configuration constant.
-- Add tests for the upload route and each image processing mode.
-- Add AWS deployment support if the target is truly serverless, such as:
-  - S3 buckets for uploads and processed images.
-  - Lambda image processing function.
-  - API Gateway endpoint.
-  - Infrastructure as Code using AWS SAM, Serverless Framework, Terraform, or CloudFormation.
-
-## Development Notes
-
-- The backend imports `UPLOAD_FOLDER` and `PROCESSED_FOLDER` from `config.py`.
-- `config.py` creates the upload and processed folders relative to the process working directory. Run the backend from `backend` so the files are stored inside `backend/uploads` and `backend/processed`.
-- `secure_filename` is used before saving uploads, which helps reduce unsafe filename characters.
-- Pillow operations preserve aspect ratio for resize and thumbnail modes.
-- CORS is enabled globally with `CORS(app)`.
+- Move frontend `API_URL` into a single configuration value.
+- Pass the AWS region into Lambda through environment variables instead of hardcoding it.
+- Restrict CORS origins to the deployed frontend domain for production.
+- Add image size limits and content validation.
+- Catch image processing errors and return clean JSON responses.
+- Add tests for local processing and Lambda handlers.
+- Expand `.gitignore` for runtime images, caches, Terraform state, provider folders, and build artifacts.
 
 ## License
 

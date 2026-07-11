@@ -58,3 +58,23 @@ def upload_image():
 @image_bp.route("/processed/<filename>")
 def get_processed_image(filename):
     return send_from_directory(PROCESSED_FOLDER, filename)
+
+
+@image_bp.route("/gallery", methods=["GET"])
+def gallery():
+
+    files = os.listdir(PROCESSED_FOLDER)
+
+    images = []
+
+    for file in files:
+
+        images.append({
+
+            "filename": file,
+
+            "url": f"http://127.0.0.1:5000/processed/{file}"
+
+        })
+
+    return jsonify(images)

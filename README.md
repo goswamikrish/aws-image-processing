@@ -7,6 +7,124 @@ A browser-based image processing app with two backend paths:
 
 The frontend lets users choose an image, select an operation, upload it, and browse processed images in a gallery. In the current frontend code, uploads and gallery reads are wired to the deployed API Gateway endpoint in `frontend/script.js`.
 
+## Project Brief
+
+This project is a small full-stack image processing platform designed to demonstrate both local development and cloud-native serverless image processing. The core product experience is intentionally simple: a user opens a static web page, chooses an image, selects an operation, sends the image for processing, and then sees the processed result appear in a gallery.
+
+The repository contains two backend implementations that share the same image-processing idea but use different runtime models:
+
+- **Serverless AWS path:** the production-style path. The browser asks API Gateway/Lambda for a pre-signed S3 upload URL, uploads the original image directly to a private S3 uploads bucket, and lets an S3 event trigger a processing Lambda. Processed files are written to a private processed bucket and exposed to the browser through temporary pre-signed read URLs.
+- **Local Flask path:** the development/testing path. Flask accepts a traditional `multipart/form-data` upload, stores the original image in `backend/uploads`, processes it synchronously with Pillow, writes the result to `backend/processed`, and serves the result back over local HTTP.
+
+At a high level, the project proves out these concepts:
+
+- Direct-to-S3 uploads from a browser using pre-signed URLs.
+- Event-driven image processing with S3 notifications and Lambda.
+- Static frontend hosting through S3 website hosting.
+- Private object storage with temporary pre-signed access instead of public upload/processed buckets.
+- A local Flask alternative for validating image operations without deploying AWS infrastructure.
+- Infrastructure-as-code provisioning through Terraform.
+
+The current source of truth for the deployed frontend API is the hardcoded API Gateway base URL in `frontend/script.js`. The current source of truth for AWS resource wiring is `terraform/main.tf`.
+
+## Workflow Guide
+
+### User Workflow
+
+1. The user opens the frontend from either `frontend/index.html` or the S3 website bucket.
+2. The user selects an image with the file picker.
+3. `frontend/script.js` renders an instant local preview using `URL.createObjectURL`; this preview does not require a backend request.
+4. The user chooses one processing mode from the dropdown: `resize`, `compress`, `convert`, or `thumbnail`.
+5. The user clicks **Upload & Process**.
+6. The frontend requests a pre-signed upload URL from the AWS API.
+7. The browser uploads the original image directly to S3 using `PUT`.
+8. Processing happens asynchronously in the background.
+9. The frontend polls the gallery every 3 seconds for up to 30 seconds.
+10. Once the processed image appears, the gallery is refreshed and the user can view or download the result.
+
+### Serverless AWS Runtime Workflow
+
+The AWS flow is the main cloud workflow:
+
+1. `frontend/script.js` sends `POST /upload` to API Gateway with JSON containing `contentType` and `processType`.
+2. API Gateway invokes the upload Lambda in `terraform/lambda/upload/handler.py`.
+3. The upload Lambda reads `UPLOAD_BUCKET` from its environment, generates a key shaped like `{processType}_{uuid}.{ext}`, and returns a pre-signed S3 `PUT` URL.
+4. The browser uploads the file directly to the private uploads bucket using that URL and the same `Content-Type` that was signed.
+5. S3 emits an `ObjectCreated` notification for the uploads bucket.
+6. The notification invokes the process Lambda in `terraform/lambda/process/handler.py`.
+7. The process Lambda reads the processing mode from the object key prefix, downloads the original image into `/tmp`, runs Pillow, and uploads `processed_{key}` into the private processed bucket.
+8. The frontend calls `GET /gallery`.
+9. API Gateway invokes the gallery Lambda in `terraform/lambda/gallery/handler.py`.
+10. The gallery Lambda lists objects in the processed bucket and returns pre-signed S3 `GET` URLs that expire after 1 hour.
+11. The frontend builds gallery cards with DOM APIs so the pre-signed query string is not corrupted by HTML escaping.
+12. Downloads are handled by fetching the S3 URL as a blob and creating a temporary object URL, which avoids cross-origin download/signature issues.
+
+### Local Flask Workflow
+
+The Flask backend is useful when you want to test image processing behavior without AWS:
+
+1. Start the backend from the `backend` directory with `python app.py`.
+2. Send a `multipart/form-data` request to `POST /upload`.
+3. The route in `backend/routes/image_routes.py` validates that the request includes an `image` file and that the extension is one of `png`, `jpg`, `jpeg`, `gif`, or `webp`.
+4. `backend/utils/files_utils.py` sanitizes the original filename, prefixes it with a UUID, and saves it to `backend/uploads`.
+5. `backend/services/image_services.py` opens the file with Pillow, applies the selected processing mode, and writes the output to `backend/processed`.
+6. The Flask route returns JSON containing the original filename, processed filename, and a local URL for the processed image.
+7. `GET /processed/<filename>` serves a processed image from disk.
+8. `GET /gallery` lists everything currently in `backend/processed`.
+
+Important local-development note: the current frontend upload code is written for the AWS pre-signed URL flow, not the local Flask multipart flow. To drive Flask from the browser, `frontend/script.js` must be changed to send the existing `FormData` directly to `http://127.0.0.1:5000/upload` and then read the local response shape. Otherwise, use Flask with curl, Postman, or another API client.
+
+### Developer Workflow
+
+Use this workflow when changing the application:
+
+1. Read or update static UI files in `frontend`.
+2. If the browser should call a different API, update the API Gateway base URL constants in `frontend/script.js`.
+3. For local backend behavior, work in `backend/routes`, `backend/services`, and `backend/utils`.
+4. For cloud behavior, work in `terraform/lambda/upload`, `terraform/lambda/process`, and `terraform/lambda/gallery`.
+5. For resource changes, update `terraform/main.tf`, `terraform/variables.tf`, and `terraform/outputs.tf`.
+6. Run the local Flask backend when validating local synchronous processing.
+7. Run Terraform from the `terraform` directory when validating AWS resource changes.
+8. Re-sync the frontend to the frontend S3 bucket after changing `frontend/index.html`, `frontend/style.css`, or `frontend/script.js`.
+
+### Deployment Workflow
+
+The expected deployment flow is:
+
+1. Configure AWS credentials locally.
+2. Create or update `terraform/terraform.tfvars` with `aws_region`, `project_name`, and `environment`.
+3. From `terraform`, run `terraform init`.
+4. Run `terraform plan` and review the S3 buckets, IAM role/policies, Lambda functions, API Gateway routes, and S3 notification.
+5. Run `terraform apply`.
+6. Copy the `api_endpoint` output.
+7. Update the `API_URL` constants in `frontend/script.js` if the endpoint changed.
+8. Upload the frontend files with `aws s3 sync ..\frontend s3://<frontend-bucket-name>`.
+9. Open the `frontend_url` output.
+10. Upload a small image and confirm that the gallery updates after the process Lambda runs.
+
+### Data and Artifact Workflow
+
+The repo currently includes several runtime or generated artifacts. Treat them differently from hand-written source:
+
+- `backend/uploads` stores original files uploaded to the local Flask backend.
+- `backend/processed` stores local processed outputs.
+- `backend/**/__pycache__` contains generated Python bytecode.
+- `terraform/build/*.zip` contains Terraform-generated Lambda archives.
+- `terraform/lambda/process/PIL`, `terraform/lambda/process/pillow.libs`, and `terraform/lambda/process/pillow-12.2.0.dist-info` are vendored Pillow files used by the process Lambda package.
+
+For a cleaner production repository, generated uploads, processed images, Python caches, Terraform state, `.terraform`, and zip build artifacts should usually be ignored or regenerated through repeatable setup steps.
+
+### Operational Context
+
+- Upload and processed S3 buckets are private and encrypted with AES256 server-side encryption.
+- S3 bucket versioning is enabled for uploads, processed images, and the frontend bucket.
+- The frontend bucket is configured for public static website hosting.
+- API Gateway CORS and S3 CORS currently allow broad origins for development convenience.
+- The upload and gallery Lambdas pin the S3 client to `eu-north-1` and use the regional endpoint to avoid S3 redirect/signature problems.
+- The process Lambda depends on Pillow being packaged for the Lambda runtime environment.
+- The gallery Lambda returns all listed processed objects without pagination or sorting.
+- The serverless `convert` mode writes JPEG output, but the generated S3 key extension is still based on the uploaded content type.
+
 ## Features
 
 - Upload images from the browser.
@@ -395,6 +513,8 @@ These files are useful locally, but many teams prefer to ignore generated files 
 - API Gateway and S3 CORS allow all origins for development.
 - The local Flask route does not catch invalid `processType` errors gracefully.
 - File validation is extension/content-type based depending on flow; deeper image validation is limited.
+- The gallery Lambda does not paginate or sort S3 results.
+- The serverless `convert` mode produces JPEG bytes while retaining the generated upload extension in the processed object key.
 - There is no automated test suite yet.
 - Terraform state and generated artifacts appear in the working tree and should be handled carefully.
 
